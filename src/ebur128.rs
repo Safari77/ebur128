@@ -781,8 +781,6 @@ impl EbuR128 {
     pub fn loudness_global_multiple<'a>(
         iter: impl Iterator<Item = &'a Self>,
     ) -> Result<f64, Error> {
-        use smallvec::SmallVec;
-
         let h = iter
             .map(|e| {
                 if !e.mode.contains(Mode::I) {
@@ -791,7 +789,7 @@ impl EbuR128 {
                     Ok(&e.block_energy_history)
                 }
             })
-            .collect::<Result<SmallVec<[_; 16]>, _>>()?;
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(crate::history::History::gated_loudness_multiple(&h))
     }
@@ -871,8 +869,6 @@ impl EbuR128 {
     pub fn loudness_range_multiple<'a>(
         iter: impl IntoIterator<Item = &'a Self>,
     ) -> Result<f64, Error> {
-        use smallvec::SmallVec;
-
         let h = iter
             .into_iter()
             .map(|e| {
@@ -882,7 +878,7 @@ impl EbuR128 {
                     Ok(&e.short_term_block_energy_history)
                 }
             })
-            .collect::<Result<SmallVec<[_; 16]>, _>>()?;
+            .collect::<Result<Vec<_>, _>>()?;
 
         crate::history::History::loudness_range_multiple(&h)
     }

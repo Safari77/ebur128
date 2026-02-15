@@ -368,27 +368,50 @@ pub mod tests {
     }
 
     impl<S: Sample + FromSample<f32> + quickcheck::Arbitrary> quickcheck::Arbitrary for Signal<S> {
-        fn arbitrary<G: quickcheck::Gen>(g: &mut G) -> Self {
-            use rand::Rng;
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            // Helper to generate a float in [min, max]
+            let gen_range_f32 = |g: &mut quickcheck::Gen, min: f32, max: f32| {
+                // Use f32::arbitrary to get a float
+                let v = f32::arbitrary(g);
+                // Strip sign and handle NaN to ensure we are working with clean numbers
+                let v = if v.is_nan() { 0.0 } else { v.abs() };
+                // Map to range [min, max] using modulo arithmetic on the range size
+                (v % (max - min)) + min
+            };
 
-            let channels = g.gen_range(1, 16);
-            let rate = g.gen_range(16_000, 224_000);
-            let num_frames = (rate as f64 * g.gen_range(0.0, 5.0)) as usize;
+            // 1. Channels: range 1..16
+            let channels = (u32::arbitrary(g) % 15) + 1;
 
-            let max = g.gen_range(0.0, 1.0);
+            // 2. Rate: range 16,000..224,000
+            let rate = (u32::arbitrary(g) % (224_000 - 16_000)) + 16_000;
+
+            // 3. Num Frames: previously (rate * 0..5.0)
+            // We just pick a random duration in milliseconds up to 5000ms
+            let duration_ms = u32::arbitrary(g) % 5000;
+            let num_frames = ((rate as u64 * duration_ms as u64) / 1000) as usize;
+
+            let max = gen_range_f32(g, 0.0, 1.0);
             let freqs = [
-                g.gen_range(20.0, 16_000.0),
-                g.gen_range(20.0, 16_000.0),
-                g.gen_range(20.0, 16_000.0),
-                g.gen_range(20.0, 16_000.0),
+                gen_range_f32(g, 20.0, 16_000.0),
+                gen_range_f32(g, 20.0, 16_000.0),
+                gen_range_f32(g, 20.0, 16_000.0),
+                gen_range_f32(g, 20.0, 16_000.0),
             ];
             let volumes = [
-                g.gen_range(0.0, 1.0),
-                g.gen_range(0.0, 1.0),
-                g.gen_range(0.0, 1.0),
-                g.gen_range(0.0, 1.0),
+                gen_range_f32(g, 0.0, 1.0),
+                gen_range_f32(g, 0.0, 1.0),
+                gen_range_f32(g, 0.0, 1.0),
+                gen_range_f32(g, 0.0, 1.0),
             ];
-            let volume_scale = 1.0 / volumes.iter().sum::<f32>();
+
+            // Prevent division by zero
+            let volume_sum = volumes.iter().sum::<f32>();
+            let volume_scale = if volume_sum > 0.0001 {
+                1.0 / volume_sum
+            } else {
+                0.0
+            };
+
             let mut accumulators = [0.0; 4];
             let steps = [
                 2.0 * std::f32::consts::PI * freqs[0] / rate as f32,
@@ -398,20 +421,24 @@ pub mod tests {
             ];
 
             let mut data = vec![S::from_sample(0.0f32); num_frames * channels as usize];
-            for frame in data.chunks_exact_mut(channels as usize) {
-                let val = max
-                    * (f32::sin(accumulators[0]) * volumes[0]
-                        + f32::sin(accumulators[1]) * volumes[1]
-                        + f32::sin(accumulators[2]) * volumes[2]
-                        + f32::sin(accumulators[3]) * volumes[3])
-                    / volume_scale;
 
-                for sample in frame.iter_mut() {
-                    *sample = S::from_sample(val);
-                }
+            if num_frames > 0 {
+                for frame in data.chunks_exact_mut(channels as usize) {
+                    let val = max
+                        * (f32::sin(accumulators[0]) * volumes[0]
+                            + f32::sin(accumulators[1]) * volumes[1]
+                            + f32::sin(accumulators[2]) * volumes[2]
+                            + f32::sin(accumulators[3]) * volumes[3])
+                        * volume_scale;
+                    let val_scaled = val / volume_scale;
 
-                for (acc, step) in accumulators.iter_mut().zip(steps.iter()) {
-                    *acc += step;
+                    for sample in frame.iter_mut() {
+                        *sample = S::from_sample(val_scaled);
+                    }
+
+                    for (acc, step) in accumulators.iter_mut().zip(steps.iter()) {
+                        *acc += step;
+                    }
                 }
             }
 

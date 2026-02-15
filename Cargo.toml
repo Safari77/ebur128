@@ -2,7 +2,7 @@
 name = "ebur128"
 version = "0.1.10"
 authors = ["Sebastian Dröge <sebastian@centricular.com>"]
-edition = "2018"
+edition = "2024"
 categories = ["multimedia"]
 keywords = ["multimedia", "audio", "dsp"]
 description = "Implementation of the EBU R128 loudness standard"
@@ -10,24 +10,25 @@ repository = "https://github.com/sdroege/ebur128"
 homepage = "https://github.com/sdroege/ebur128"
 license = "MIT"
 readme = "README.md"
-rust-version = "1.60"
+rust-version = "1.86"
 
 [dependencies]
-bitflags = "1.0"
-smallvec = "1.0"
+bitflags = "1"
+tinyvec = { version = "1", features = ["alloc"] }
 dasp_sample = "0.11"
 dasp_frame = "0.11"
+no_denormals = "0.3"
 
 [build-dependencies]
 cc = { version = "1.0", optional = true }
 
 [dev-dependencies]
-criterion = "0.4"
+criterion = "0.8"
 float_eq = "1"
 ebur128-c = { package = "ebur128", version = "=0.1.1" }
-quickcheck = "0.9"
-quickcheck_macros = "0.9"
-rand = "0.7"
+quickcheck = "1"
+quickcheck_macros = "1"
+rand = "0.10"
 hound = "3"
 
 [features]
@@ -98,3 +99,11 @@ required-features = ["reference-tests"]
 
 [profile.dev]
 opt-level = 1
+
+[profile.release]
+opt-level = 3
+debug = true
+strip = false
+lto = "fat"
+panic = "abort"
+

@@ -267,29 +267,29 @@ impl History {
         }
 
         match self {
-            History::Histogram(ref mut h) => h.add(energy),
-            History::Queue(ref mut q) => q.add(energy),
+            History::Histogram(h) => h.add(energy),
+            History::Queue(q) => q.add(energy),
         }
     }
 
     pub fn set_max_size(&mut self, max: usize) {
         match self {
             History::Histogram(_) => (),
-            History::Queue(ref mut q) => q.set_max_size(max),
+            History::Queue(q) => q.set_max_size(max),
         }
     }
 
     pub fn reset(&mut self) {
         match self {
-            History::Histogram(ref mut h) => h.reset(),
-            History::Queue(ref mut q) => q.reset(),
+            History::Histogram(h) => h.reset(),
+            History::Queue(q) => q.reset(),
         }
     }
 
     fn calc_relative_threshold(&self) -> (u64, f64) {
         match self {
-            History::Histogram(ref h) => h.calc_relative_threshold(),
-            History::Queue(ref q) => q.calc_relative_threshold(),
+            History::Histogram(h) => h.calc_relative_threshold(),
+            History::Queue(q) => q.calc_relative_threshold(),
         }
     }
 
@@ -337,7 +337,7 @@ impl History {
             let mut histogram_iterator = None;
             let mut queue_iterator = None;
             match h {
-                History::Histogram(ref h) => {
+                History::Histogram(h) => {
                     histogram_iterator = Some(
                         Iterator::zip(
                             h.0[start_index..].iter(),
@@ -349,7 +349,7 @@ impl History {
                         }),
                     )
                 }
-                History::Queue(ref q) => {
+                History::Queue(q) => {
                     queue_iterator = Some(q.queue.iter().filter_map(move |loudness| {
                         if *loudness >= relative_threshold {
                             Some((1, *loudness))
@@ -428,7 +428,7 @@ impl History {
         }
 
         match s[0] {
-            History::Histogram(ref h) => {
+            History::Histogram(h) => {
                 let mut combined;
 
                 let combined = if s.len() == 1 {
@@ -438,7 +438,7 @@ impl History {
 
                     for h in s {
                         match h {
-                            History::Histogram(ref h) => {
+                            History::Histogram(h) => {
                                 for (i, o) in Iterator::zip(h.0.iter(), combined.iter_mut()) {
                                     *o += *i;
                                 }
@@ -456,7 +456,7 @@ impl History {
                 let mut len = 0;
                 for h in s {
                     match h {
-                        History::Queue(ref q) => {
+                        History::Queue(q) => {
                             len += q.queue.len();
                         }
                         _ => return Err(Error::InvalidMode),
@@ -466,7 +466,7 @@ impl History {
                 let mut combined = Vec::with_capacity(len);
                 for h in s {
                     match h {
-                        History::Queue(ref q) => {
+                        History::Queue(q) => {
                             let (v1, v2) = q.queue.as_slices();
                             combined.extend_from_slice(v1);
                             combined.extend_from_slice(v2);
@@ -533,7 +533,7 @@ mod tests {
         fn arbitrary<G: quickcheck::Gen>(g: &mut G) -> Self {
             use rand::Rng;
 
-            Energy(g.gen_range(-5.0, 1200.0))
+            Energy(g.random_range(-5.0..1200.0))
         }
     }
 

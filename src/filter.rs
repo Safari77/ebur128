@@ -373,57 +373,11 @@ impl Filter {
     }
 }
 
-#[cfg(all(
-    any(target_arch = "x86", target_arch = "x86_64"),
-    target_feature = "sse2"
-))]
 mod ftz {
-    #[cfg(target_arch = "x86")]
-    #[allow(deprecated)]
-    use std::arch::x86::{_mm_getcsr, _mm_setcsr, _MM_FLUSH_ZERO_ON};
-    #[cfg(target_arch = "x86_64")]
-    #[allow(deprecated)]
-    use std::arch::x86_64::{_mm_getcsr, _mm_setcsr, _MM_FLUSH_ZERO_ON};
-
-    pub struct Ftz(u32);
-
-    impl Ftz {
-        #[allow(deprecated)]
-        unsafe fn new() -> Self {
-            let csr = _mm_getcsr();
-            _mm_setcsr(csr | _MM_FLUSH_ZERO_ON);
-            Ftz(csr)
-        }
-    }
-
-    impl Drop for Ftz {
-        #[allow(deprecated)]
-        fn drop(&mut self) {
-            unsafe {
-                _mm_setcsr(self.0);
-            }
-        }
-    }
+    pub struct Ftz;
 
     pub fn with_ftz<F: FnOnce(Option<&Ftz>) -> T, T>(func: F) -> T {
-        // Safety: MXCSR is unset in any case when Ftz goes out of scope and the closure also can't
-        // mem::forget() it to prevent running the Drop impl.
-        unsafe {
-            let ftz = Ftz::new();
-            func(Some(&ftz))
-        }
-    }
-}
-
-#[cfg(not(any(all(
-    any(target_arch = "x86", target_arch = "x86_64"),
-    target_feature = "sse2"
-)),))]
-mod ftz {
-    pub enum Ftz {}
-
-    pub fn with_ftz<F: FnOnce(Option<&Ftz>) -> T, T>(func: F) -> T {
-        func(None)
+        unsafe { no_denormals::no_denormals(|| func(Some(&Ftz))) }
     }
 }
 
@@ -900,12 +854,12 @@ mod tests {
         fn arbitrary<G: quickcheck::Gen>(g: &mut G) -> Self {
             use rand::Rng;
 
-            let channels = g.gen_range(1, 16);
+            let channels = g.random_range(1..16);
 
             let rate = 48_000;
 
             let samples_in_100ms = (rate + 5) / 10;
-            let (frames_per_block, window) = if g.gen() {
+            let (frames_per_block, window) = if g.random() {
                 (4 * samples_in_100ms, 400)
             } else {
                 (30 * samples_in_100ms, 3000)
@@ -920,10 +874,10 @@ mod tests {
 
             let mut audio_data = vec![0.0; audio_data_frames * channels as usize];
             for v in &mut audio_data {
-                *v = g.gen_range(-1.0, 1.0);
+                *v = g.random_range(-1.0..1.0);
             }
 
-            let audio_data_index = g.gen_range(0, audio_data_frames) * channels as usize;
+            let audio_data_index = g.random_range(0..audio_data_frames) * channels as usize;
 
             GatingBlock {
                 frames_per_block,
