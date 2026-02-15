@@ -28,8 +28,11 @@ unsafe fn state_ref<'a>(state: *const State) -> (&'a State, &'a ebur128::EbuR128
 /// field is a valid, non-null pointer to an `EbuR128`.  The caller must
 /// guarantee exclusive access for the lifetime of the returned references.
 unsafe fn state_mut<'a>(state: *mut State) -> (&'a mut State, &'a mut ebur128::EbuR128) {
+    // Read the internal pointer before creating the &mut State reference
+    // to avoid overlapping mutable borrows.
+    let internal = unsafe { (*state).internal };
     let s = unsafe { &mut *state };
-    let e = unsafe { &mut *s.internal };
+    let e = unsafe { &mut *internal };
     (s, e)
 }
 
@@ -85,10 +88,12 @@ pub unsafe extern "C" fn ebur128_destroy(state: *mut *mut State) {
     }
 
     unsafe {
-        let s = Box::from_raw(*state);
-        let e = Box::from_raw(s.internal);
-        drop(e);
-        drop(s);
+        // Read the inner pointer before taking ownership of State,
+        // so we don't access Box<State> fields after it could be dropped.
+        let inner = (**state).internal;
+        let _s = Box::from_raw(*state);
+        let _e = Box::from_raw(inner);
+        // _e (EbuR128) drops first, then _s (State) — correct order.
 
         *state = ptr::null_mut();
     }
@@ -113,10 +118,12 @@ pub unsafe extern "C" fn ebur128_set_channel(
 ) -> i32 {
     let (_, e) = unsafe { state_mut(state) };
 
-    match e.set_channel(
-        channel_number,
-        unsafe { mem::transmute::<i32, ebur128::Channel>(value) },
-    ) {
+    // Safety: ebur128::Channel must be #[repr(i32)] (or equivalent) and the
+    // caller is responsible for passing only valid discriminant values.
+    // Passing an out-of-range value is UB — this matches the C library contract.
+    match e.set_channel(channel_number, unsafe {
+        mem::transmute::<i32, ebur128::Channel>(value)
+    }) {
         Err(err) => err.into(),
         Ok(_) => 0,
     }
@@ -282,7 +289,10 @@ pub unsafe extern "C" fn ebur128_loudness_global_multiple(
     out: *mut f64,
 ) -> i32 {
     let s = unsafe { std::slice::from_raw_parts(state, size) };
-    let iter = s.iter().copied().map(|s: *mut State| unsafe { &*(*s).internal });
+    let iter = s
+        .iter()
+        .copied()
+        .map(|s: *mut State| unsafe { &*(*s).internal });
 
     match ebur128::EbuR128::loudness_global_multiple(iter) {
         Err(err) => err.into(),
@@ -360,7 +370,10 @@ pub unsafe extern "C" fn ebur128_loudness_range_multiple(
     out: *mut f64,
 ) -> i32 {
     let s = unsafe { std::slice::from_raw_parts(state, size) };
-    let iter = s.iter().copied().map(|s: *mut State| unsafe { &*(*s).internal });
+    let iter = s
+        .iter()
+        .copied()
+        .map(|s: *mut State| unsafe { &*(*s).internal });
 
     match ebur128::EbuR128::loudness_range_multiple(iter) {
         Err(err) => err.into(),
