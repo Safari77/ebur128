@@ -10,7 +10,7 @@ repository = "https://github.com/sdroege/ebur128"
 homepage = "https://github.com/sdroege/ebur128"
 license = "MIT"
 readme = "README.md"
-rust-version = "1.86"
+rust-version = "1.90"
 
 [dependencies]
 bitflags = "1"
