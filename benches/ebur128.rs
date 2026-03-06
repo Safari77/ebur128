@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 use ebur128::{EbuR128, Mode};
 use ebur128_c::Mode as ModeC;

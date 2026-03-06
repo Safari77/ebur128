@@ -19,7 +19,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use crate::{energy_to_loudness, Error};
+use crate::{Error, energy_to_loudness};
 
 use std::collections::VecDeque;
 use std::fmt;

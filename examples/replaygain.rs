@@ -1,4 +1,4 @@
-use ebur128::{energy_to_loudness, EbuR128, Mode};
+use ebur128::{EbuR128, Mode, energy_to_loudness};
 use hound::WavReader;
 use std::path::Path;
 
