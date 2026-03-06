@@ -169,7 +169,7 @@ impl Filter {
         dest_index: usize,
         channel_map: &[crate::ebur128::Channel],
     ) {
-        assert!(dest.len() % self.channels as usize == 0);
+        assert!(dest.len().is_multiple_of(self.channels as usize));
         assert!(channel_map.len() == self.channels as usize);
         assert!(src.channels() == self.channels as usize);
         assert!(self.filter_state.len() == self.channels as usize);
@@ -313,7 +313,7 @@ impl Filter {
         let mut sum = 0.0;
 
         let channels = channel_map.len();
-        assert!(audio_data.len() % channels == 0);
+        assert!(audio_data.len().is_multiple_of(channels));
         let audio_data_stride = audio_data.len() / channels;
         assert!(audio_data_index <= audio_data_stride);
 

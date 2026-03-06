@@ -80,7 +80,7 @@ impl<'a, S> Interleaved<'a, S> {
             return Err(crate::Error::NoMem);
         }
 
-        if data.len() % channels != 0 {
+        if !data.len().is_multiple_of(channels) {
             return Err(crate::Error::NoMem);
         }
 
